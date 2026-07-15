@@ -9,14 +9,14 @@
 
 #define MAX_SEQ 100000
 
-// History buffer to store frames for retransmission
+
 struct {
     uint8_t payload[164]; 
     int valid;
 } history[MAX_SEQ];
 
 int main(void) {
-    // 1. Setup incoming media socket from harness (47010)
+   
     int in_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in in_addr = {0};
     in_addr.sin_family = AF_INET;
@@ -27,7 +27,7 @@ int main(void) {
         return 1;
     }
 
-    // 2. Setup incoming feedback socket from relay (47004)
+   
     int fb_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in fb_addr = {0};
     fb_addr.sin_family = AF_INET;
@@ -38,7 +38,7 @@ int main(void) {
         return 1;
     }
 
-    // 3. Setup outgoing socket to relay (47001)
+    
     int out_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in relay = {0};
     relay.sin_family = AF_INET;
@@ -54,7 +54,7 @@ int main(void) {
     for (;;) {
         if (poll(fds, 2, -1) < 0) continue;
 
-        // Lane A: New frame from harness
+       
         if (fds[0].revents & POLLIN) {
             ssize_t n = recvfrom(in_fd, buf, sizeof(buf), 0, NULL, NULL);
             if (n == 164) {
@@ -66,12 +66,12 @@ int main(void) {
                     memcpy(history[seq].payload, buf, 164);
                     history[seq].valid = 1;
                 }
-                // Forward immediately
+                
                 sendto(out_fd, buf, 164, 0, (struct sockaddr *)&relay, sizeof(relay));
             }
         }
 
-        // Lane B: NACK received from receiver
+        
         if (fds[1].revents & POLLIN) {
             ssize_t n = recvfrom(fb_fd, buf, sizeof(buf), 0, NULL, NULL);
             if (n >= 4) {
@@ -79,7 +79,7 @@ int main(void) {
                 memcpy(&seq, buf, 4);
                 seq = ntohl(seq);
                 
-                // Retransmit if we have it
+              
                 if (seq < MAX_SEQ && history[seq].valid) {
                     sendto(out_fd, history[seq].payload, 164, 0, (struct sockaddr *)&relay, sizeof(relay));
                 }
