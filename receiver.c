@@ -30,7 +30,7 @@ int main(void) {
     double t0 = atof(t0_str);
     double delay_sec = atof(delay_str) / 1000.0;
 
-    // 1. Media from relay (47002)
+   
     int in_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in in_addr = {0};
     in_addr.sin_family = AF_INET;
@@ -41,14 +41,13 @@ int main(void) {
         return 1;
     }
 
-    // 2. Output to player (47020)
     int out_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in player = {0};
     player.sin_family = AF_INET;
     player.sin_port = htons(47020);
     player.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    // 3. Feedback (NACKs) to relay (47003)
+    
     int fb_fd = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in relay_fb = {0};
     relay_fb.sin_family = AF_INET;
@@ -63,7 +62,7 @@ int main(void) {
     uint32_t highest_seq = 0;
 
     for (;;) {
-        // 10ms timeout ensures we continuously check for missing packets
+        
         int p = poll(fds, 1, 10);
         double now = get_time();
 
@@ -76,7 +75,7 @@ int main(void) {
 
                 if (seq < MAX_SEQ && !received[seq]) {
                     received[seq] = 1;
-                    // Immediately forward to player - no jitter buffer required
+                    
                     sendto(out_fd, buf, n, 0, (struct sockaddr *)&player, sizeof(player));
                     if (seq > highest_seq) {
                         highest_seq = seq;
@@ -85,16 +84,15 @@ int main(void) {
             }
         }
 
-        // Scan trailing window for missing frames to NACK
+        
         uint32_t start_seq = (highest_seq > 100) ? highest_seq - 100 : 0;
         for (uint32_t i = start_seq; i < highest_seq; i++) {
             if (!received[i]) {
                 double deadline = t0 + delay_sec + (i * 0.020);
                 
-                // Only NACK if there is still enough time for the packet to arrive
+               
                 if (now + 0.010 < deadline) {
-                    // Profile B has high jitter. 60ms timeout prevents NACK storms 
-                    // while ensuring aggressive recovery before the deadline.
+                  
                     if (now - last_nack_time[i] > 0.060) {
                         uint32_t net_seq = htonl(i);
                         sendto(fb_fd, &net_seq, 4, 0, (struct sockaddr *)&relay_fb, sizeof(relay_fb));
